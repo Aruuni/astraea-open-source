@@ -1,4 +1,9 @@
 build/
+.vscode
+kernel/
+scripts/
 _deps/
 compile_commands.json
 __pycache__/
+*.csv
+*.txt

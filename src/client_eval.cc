@@ -137,12 +137,19 @@ void do_monitor(DeepCCSocket& sock) {
       unsigned int srtt = state["srtt_us"];
       // change srtt to us
       srtt = srtt >> 3;
-      *perf_log << state["min_rtt"] << "\t" << state["avg_urtt"] << "\t"
-                << state["cnt"] << "\t" << srtt << "\t" << state["avg_thr"]
-                << "\t" << state["thr_cnt"] << "\t" << state["pacing_rate"]
-                << "\t" << state["loss_bytes"] << "\t" << state["packets_out"]
-                << "\t" << state["retrans_out"] << "\t"
-                << state["max_packets_out"] << "\t" << state["cwnd"] << "\t"
+      double avg_thr_mbps = static_cast<double>(state["avg_thr"]) * 8.0 / 1e6;
+      *perf_log << state["min_rtt"] << "\t" 
+                << state["avg_urtt"] << "\t"
+                << state["cnt"] << "\t" 
+                << srtt << "\t" 
+                << avg_thr_mbps << "\t" 
+                << state["thr_cnt"] << "\t" 
+                << state["pacing_rate"] << "\t" 
+                << state["loss_bytes"] << "\t" 
+                << state["packets_out"] << "\t" 
+                << state["retrans_out"] << "\t"
+                << state["max_packets_out"] << "\t" 
+                << state["cwnd"] << "\t"
                 << 0 << endl;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(30));
@@ -161,12 +168,22 @@ void control_thread(DeepCCSocket& sock, IPC_ptr& ipc,
   }
 }
 
-void data_thread(TCPSocket& sock) {
+void data_thread(TCPSocket& sock, int duration_seconds) {
+  // Store the start and end time
+  auto start_time = clock_type::now();
+  auto end_time   = start_time + std::chrono::seconds(duration_seconds);
+
   string data(BUFSIZ, 'a');
   while (send_traffic.load()) {
+    // If we have a nonzero duration, check if we've hit the time limit
+    if (duration_seconds > 0 && clock_type::now() >= end_time) {
+      LOG(INFO) << "Duration of " << duration_seconds << " seconds has elapsed. Stopping traffic...";
+      break;
+    }
     sock.write(data, true);
   }
   LOG(INFO) << "Data thread exits";
+  exit(0);
 }
 
 void usage_error(const string& program_name) {
@@ -174,7 +191,7 @@ void usage_error(const string& program_name) {
   cerr << endl;
   cerr << "Options = --ip=IP_ADDR --port=PORT --cong=ALGORITHM"
           "--interval=INTERVAL (Milliseconds) --pyhelper=PYTHON_PATH "
-          "--model=MODEL_PATH --id=None --perf-log=None"
+          "--model=MODEL_PATH --id=None --perf-log=None --duration=None"
        << endl;
   cerr << endl;
   cerr << "Default congestion control algorithms for incoming TCP is CUBIC; "
@@ -211,8 +228,9 @@ int main(int argc, char** argv) {
       {"interval", optional_argument, nullptr, 't'},
       {"id", optional_argument, nullptr, 'f'},
       {"perf-log", optional_argument, nullptr, 'l'},
+      {"duration", optional_argument, nullptr, 'd'},  // <-- NEW OPTION
       {0, 0, nullptr, 0}};
-
+  int duration_seconds = 0;  // default = 0 means "run indefinitely"
   /* use RL inference or not */
   bool use_RL = false;
   string ip, service, pyhelper, model, cong_ctl, interval, id, perf_log_path;
@@ -246,6 +264,9 @@ int main(int argc, char** argv) {
     case 't':
       interval = optarg;
       break;
+    case 'd':
+      duration_seconds = stoi(optarg);
+    break;
     case '?':
       usage_error(argv[0]);
       break;
@@ -366,7 +387,7 @@ int main(int argc, char** argv) {
     LOG(INFO) << "Launch monitor thread for " << cong_ctl << " ...";
     ct = thread(do_monitor, std::ref(client));
   }
-  thread dt(data_thread, std::ref(client));
+  thread dt(data_thread, std::ref(client), duration_seconds);
   LOG(INFO) << "Client " << global_flow_id << " is sending data ... ";
 
   /* wait for finish */

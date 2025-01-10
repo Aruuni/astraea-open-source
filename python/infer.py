@@ -1,8 +1,10 @@
 #!/usr/bin/env python3.7
-
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning) # supress FutureWarning
 import argparse
 import sys
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Suppress INFO and WARNING logs
 from os import path
 import numpy as np
 import tensorflow as tf
@@ -122,7 +124,7 @@ def main():
     action_scale, action_range = get_action_info()
     params = Params(args.config)
 
-    sys.stderr.write(f"PyHelper: Loading model from: {args.model_path}\n")
+    #sys.stderr.write(f"PyHelper: Loading model from: {args.model_path}\n")
 
     s_dim, a_dim, s_dim_global = STATE_DIM, ACTION_DIM, GLOBAL_DIM
     single_dim = s_dim

@@ -40,6 +40,14 @@ mkdir build && cd build
 CXX=/usr/bin/g++-9 cmake ..
 make -j
 ```
+### Install python dependencies 
+
+```bash 
+python3.7 -m pip install pip --upgrade
+python3.7 -m pip install protobuf==3.10.0 tensorflow==1.14.0 --upgrade
+python3.7 -m pip install matplotlib==3.2
+```
+python3.7 -m pip install gym sysv_ipc matplotlib numpy pyyaml tabulate
 
 ### Build Astraea Inference Service (Optional)
 

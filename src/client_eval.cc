@@ -151,7 +151,7 @@ void do_congestion_control(DeepCCSocket& sock, IPC_ptr& ipc_sock) {
             << state["min_rtt"] << "," 
             << state["avg_urtt"] << ","
             << state["cnt"] << "," 
-            << srtt << "," 
+            << srtt /1000 << "," 
             << avg_thr_mbps << "," 
             << state["thr_cnt"] << ","  
             << pacing << ","  
@@ -216,8 +216,9 @@ void data_thread(TCPSocket& sock, int duration_seconds) {
     }
     sock.write(data, true);
   }
+  cout << "----END----" << "\n";
+
   LOG(INFO) << "Data thread exits";
-  std::cout << static_cast<char>(127) << "\n";
   exit(0);
 }
 
@@ -418,22 +419,8 @@ int main(int argc, char** argv) {
               << "CWND to Assign" << "\n";
 
   }
-  if (terminal_out){
-      std::cout << "time,"
-              << "min_rtt,"
-              << "avg_urtt,"
-              << "cnt,"
-              << "srtt_us,"
-              << "avg_thr,"
-              << "thr_cnt,"
-              << "pacing_rate,"
-              << "loss_bytes,"
-              << "packets_out,"
-              << "retrans_out,"
-              << "max_packets_out,"
-              << "CWND in Kernel,"
-              << "CWND to Assign" << "\n";
-  }
+  cout << "----START----" << "\n";
+
   /* start data thread and control thread */
   thread ct;
   if (use_RL and ipc != nullptr) {

@@ -63,7 +63,7 @@ void perf_log_thread(const std::chrono::milliseconds interval) {
     auto millis_since_epoch = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::system_clock::now().time_since_epoch()
         ).count();
-    std::cout << millis_since_epoch << "," << current_thr << endl;
+    cout << millis_since_epoch << "," << current_thr << "\n";
     
     std::this_thread::sleep_until(target_time);
     target_time += interval;
@@ -174,15 +174,16 @@ int main(int argc, char** argv) {
 
   // Start logging thread (if needed)
   thread log_thread;
-  if (terminal_out){
-    std::cout << "time,goodput" << "\n";
-  }
   if (perf_log || terminal_out) {
     cerr << "Server start with perf logger" << (one_off ? " one-off mode is enabled.\n" : "\n");
     log_thread = std::move(std::thread(perf_log_thread, log_interval));
     if (perf_log) {
       *perf_log << "time,goodput" << "\n";
     }
+  }
+  if (terminal_out){
+    cout << "----START----" << "\n";
+    //cout << "time,goodput" << "\n";
   }
   while (true) {
     // For multiple connections, we'd normally do this in a loop
@@ -214,6 +215,8 @@ int main(int argc, char** argv) {
       if (log_thread.joinable()) {
         log_thread.join();
       }
+      cout << "----END----" << "\n";
+
       return 0;
     }
 

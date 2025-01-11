@@ -46,7 +46,7 @@ std::unique_ptr<ChildProcess> astraea_pyhelper = nullptr;
 std::unique_ptr<IPCSocket> ipc = nullptr;
 std::chrono::_V2::system_clock::time_point ts_now = clock_type::now();
 std::unique_ptr<std::ofstream> perf_log;
-
+bool terminal_out = false;
 /* define message type */
 enum class MessageType { INIT = 0, START = 1, END = 2, ALIVE = 3, OBSERVE = 4 };
 
@@ -116,17 +116,52 @@ void do_congestion_control(DeepCCSocket& sock, IPC_ptr& ipc_sock) {
       << "Client GET cwnd: " << cwnd << ", elapsed time is "
       << std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count()
       << "us";
-  if (perf_log) {
-    unsigned int srtt = state["srtt_us"];
+  
+  if (perf_log ) {
     // change srtt to us
+    unsigned int srtt = state["srtt_us"];
     srtt = srtt >> 3;
-    *perf_log << state["min_rtt"] << "\t" << state["avg_urtt"] << "\t"
-              << state["cnt"] << "\t" << srtt << "\t" << state["avg_thr"]
-              << "\t" << state["thr_cnt"] << "\t" << state["pacing_rate"]
-              << "\t" << state["loss_bytes"] << "\t" << state["packets_out"]
-              << "\t" << state["retrans_out"] << "\t"
-              << state["max_packets_out"] << "\t" << state["cwnd"] << "\t"
+    unsigned int avg_thr_mbps = static_cast<unsigned int>(state["avg_thr"]) / 1e6 * 8 ;
+    unsigned int pacing = static_cast<unsigned int>(state["pacing_rate"]) / 1e6 * 8 ;
+    auto millis_since_epoch = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    *perf_log << millis_since_epoch << ","
+              << state["min_rtt"] << "," 
+              << state["avg_urtt"] << ","
+              << state["cnt"] << "," 
+              << srtt << "," 
+              << avg_thr_mbps << "," 
+              << state["thr_cnt"] << ","  
+              << pacing << ","  
+              << state["loss_bytes"] << ","  
+              << state["packets_out"] << ","  
+              << state["retrans_out"] << "," 
+              << state["max_packets_out"] << ","  
+              << state["cwnd"] << "," 
               << cwnd << endl;
+
+  }
+  if (terminal_out) {
+  // change srtt to us
+  unsigned int srtt = state["srtt_us"];
+  srtt = srtt >> 3;
+  unsigned int avg_thr_mbps = static_cast<unsigned int>(state["avg_thr"]) / 1e6 * 8 ;
+  unsigned int pacing = static_cast<unsigned int>(state["pacing_rate"]) / 1e6 * 8 ;
+  auto millis_since_epoch = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+  std::cout << millis_since_epoch << ","
+            << state["min_rtt"] << "," 
+            << state["avg_urtt"] << ","
+            << state["cnt"] << "," 
+            << srtt << "," 
+            << avg_thr_mbps << "," 
+            << state["thr_cnt"] << ","  
+            << pacing << ","  
+            << state["loss_bytes"] << ","  
+            << state["packets_out"] << ","  
+            << state["retrans_out"] << "," 
+            << state["max_packets_out"] << ","  
+            << state["cwnd"] << "," 
+            << cwnd << endl;
+
   }
 }
 
@@ -137,12 +172,11 @@ void do_monitor(DeepCCSocket& sock) {
       unsigned int srtt = state["srtt_us"];
       // change srtt to us
       srtt = srtt >> 3;
-      double avg_thr_mbps = static_cast<double>(state["avg_thr"]) * 8.0 / 1e6;
       *perf_log << state["min_rtt"] << "\t" 
                 << state["avg_urtt"] << "\t"
                 << state["cnt"] << "\t" 
                 << srtt << "\t" 
-                << avg_thr_mbps << "\t" 
+                << state["avg_thr"] << "\t" 
                 << state["thr_cnt"] << "\t" 
                 << state["pacing_rate"] << "\t" 
                 << state["loss_bytes"] << "\t" 
@@ -183,6 +217,7 @@ void data_thread(TCPSocket& sock, int duration_seconds) {
     sock.write(data, true);
   }
   LOG(INFO) << "Data thread exits";
+  std::cout << static_cast<char>(127) << "\n";
   exit(0);
 }
 
@@ -219,6 +254,7 @@ int main(int argc, char** argv) {
   if (argc < 1) {
     usage_error(argv[0]);
   }
+    // New boolean flag for one-off mode
   const option command_line_options[] = {
       {"ip", required_argument, nullptr, 'a'},
       {"port", required_argument, nullptr, 'p'},
@@ -228,7 +264,8 @@ int main(int argc, char** argv) {
       {"interval", optional_argument, nullptr, 't'},
       {"id", optional_argument, nullptr, 'f'},
       {"perf-log", optional_argument, nullptr, 'l'},
-      {"duration", optional_argument, nullptr, 'd'},  // <-- NEW OPTION
+      {"terminal-out", no_argument, nullptr, 's'},
+      {"duration", optional_argument, nullptr, 'd'}, 
       {0, 0, nullptr, 0}};
   int duration_seconds = 0;  // default = 0 means "run indefinitely"
   /* use RL inference or not */
@@ -264,6 +301,9 @@ int main(int argc, char** argv) {
     case 't':
       interval = optarg;
       break;
+    case 's':
+      terminal_out = true;
+      break;
     case 'd':
       duration_seconds = stoi(optarg);
     break;
@@ -296,7 +336,7 @@ int main(int argc, char** argv) {
       throw runtime_error("Trained model does not exist");
     }
     /* IPC and control interval */
-    string ipc_dir = "astraea_ipc";
+    string ipc_dir = "/tmp/";
     // return true if created or dir exists
     fs::create_directory(ipc_dir);
     string ipc_file = fs::path(ipc_dir) / ("astraea" + to_string(pid()));
@@ -362,19 +402,37 @@ int main(int argc, char** argv) {
       throw runtime_error(perf_log_path + ": error opening for writing");
     }
     // write header
-    *perf_log << "min_rtt\t"
-              << "avg_urtt\t"
-              << "cnt\t"
-              << "srtt_us\t"
-              << "avg_thr\t"
-              << "thr_cnt\t"
-              << "pacing_rate\t"
-              << "loss_bytes\t"
-              << "packets_out\t"
-              << "retrans_out\t"
-              << "max_packets_out\t"
-              << "CWND in Kernel\t"
-              << "CWND to Assign" << endl;
+    *perf_log << "time,"
+              << "min_rtt,"
+              << "avg_urtt,"
+              << "cnt,"
+              << "srtt_us,"
+              << "avg_thr,"
+              << "thr_cnt,"
+              << "pacing_rate,"
+              << "loss_bytes,"
+              << "packets_out,"
+              << "retrans_out,"
+              << "max_packets_out,"
+              << "CWND in Kernel,"
+              << "CWND to Assign" << "\n";
+
+  }
+  if (terminal_out){
+      std::cout << "time,"
+              << "min_rtt,"
+              << "avg_urtt,"
+              << "cnt,"
+              << "srtt_us,"
+              << "avg_thr,"
+              << "thr_cnt,"
+              << "pacing_rate,"
+              << "loss_bytes,"
+              << "packets_out,"
+              << "retrans_out,"
+              << "max_packets_out,"
+              << "CWND in Kernel,"
+              << "CWND to Assign" << "\n";
   }
   /* start data thread and control thread */
   thread ct;

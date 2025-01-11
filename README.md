@@ -55,7 +55,7 @@ cd scripts/
 ### Run Astraea Server
 
 ```bash
-./src/build/bin/server --port=12345 --perf-log=server.txt
+./src/build/bin/server --port=12345 --perf-log=test/server.txt --perf-interval=1000 --one-off
 ```
 
 ### Run Astraea Client with Naive Python Inference Helper
@@ -63,7 +63,7 @@ cd scripts/
 > **Note:** Ensure that you have allowed `astraea` as the kernel TCP congestion control algorithm.
 
 ```bash
-./src/build/bin/client_eval --ip=127.0.0.1 --port=12345 --cong=astraea --interval=30 --pyhelper=./python/infer.py --model=./models/py/ --duration=10 --id=0 --perf-log=client.txt
+./src/build/bin/client_eval --ip=127.0.0.1 --port=12345 --cong=astraea --interval=30 --pyhelper=./python/infer.py --model=./models/py/ --duration=10 --id=0 --perf-log=test/client.txt
 ```
 
 ### Run Astraea with Mahimahi

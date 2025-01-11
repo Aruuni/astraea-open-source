@@ -1,6 +1,6 @@
 export CC = g++
 
-export CCFLAGS = -I./common -std=c++17 -Wall -pedantic -Wextra -Weffc++
+export CCFLAGS = -I./common -std=c++17 # -Wall -pedantic -Wextra -Weffc++
 export LDFLAGS = -pthread -lm -lstdc++ -L./common 
 
 .PHONY: all

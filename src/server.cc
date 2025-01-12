@@ -150,11 +150,11 @@ int main(int argc, char** argv) {
     if (!perf_log->good()) {
       throw runtime_error(perf_log_path + ": error opening for writing");
     }
-    if (!interval.empty()) {
-      log_interval = std::chrono::milliseconds(stoi(interval));
-    }
   }
 
+  if (!interval.empty()) {
+    log_interval = std::chrono::milliseconds(stoi(interval));
+  }
   int port = stoi(service);
   // init server addr
   Address address("0.0.0.0", port);

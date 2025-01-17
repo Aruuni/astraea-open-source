@@ -48,8 +48,7 @@ void perf_log_thread(const std::chrono::milliseconds interval) {
   while (recv_traffic.load()) {
     // log the current throughput in Mbps
     tmp = recv_cnt;  // use this to avoid read/write competing
-    unsigned long long current_thr =
-        (tmp - last_observed_recv_cnt) * 8 / interval.count() * 1000 / 1000000;
+    double current_thr = (double)(tmp - last_observed_recv_cnt) * 8 / (double)interval.count() * 1000 / 1000000;
     last_observed_recv_cnt = tmp;
     if (perf_log) {
           // Convert the time_point to milliseconds since epoch
